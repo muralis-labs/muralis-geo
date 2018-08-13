@@ -1,0 +1,96 @@
+Notas de desenvolvimento com ArcObjects:
+
+1 - Para trabalhar com edições sempre utilizar Sessões de Edição e Operações de edição:
+	- Uma sessão de edição envolve um conjunto de operações de edição ou edições sem operação (este segundo não recomendado);
+	- Uma operação de edição envolve um conjunto edições, para que uma edição possa ser desfeita ela deve existir dentro de uma operação de edição;
+	- O tempo de vida do "desfazer" é do momento em que a operação foi finalizada até que a sessão de edição seja finalizada.
+
+Ex de fluxo funcional:
+
+Sessão de edição iniciada -> Operação de edição iniciada -> Edições executadas -> Operação de edição finalizada -> é possível desfazer a operação -> sessão de edição finalizada -> não é possível desfazer a operação
+
+Sessão de edição iniciada -> Operação de edição iniciada -> Edições executadas -> Operação de edição finalizada ->  sessão de edição finalizada -> não é possível desfazer a operação
+
+Sessão de edição iniciada -> Operação de edição iniciada -> Edições executadas -> não é possível desfazer a operação -> Operação de edição finalizada -> é possível desfazer a operação ->  sessão de edição finalizada 
+
+2 - Sempre verificar se o objeto que está trabalhando pede um Release de ComObject como no caso de cursores.
+Isso se deve ao fato de que os objetos COM podem prender recursos de memória se não liberados com "ReleaseComObject". Na verdade isso é uma boa prática do .NET e n especificamente do C#																													 	
+
+3 - A realizar buscas com cursores tomar cuidado ao utilizar o "Recycle". Se passar o parâmetro de recycle como true, ao realizar iteração no enumerador
+todos os registros ao chamar cursor.NextRow() irão apontar para o mesmo endereço de memória.
+ex:
+Supondo registros com os dados:
+{
+	[
+		{
+			Id: 1,
+			Item: caneca
+		},
+		{
+			Id: 2,
+			Item: caneta
+		},
+	]
+}
+
+Ex cursor sem reciclar:
+ICursor cursor = table.Search(queryFilter, false);
+list.Add(cursor.MoveNext());
+foreach(IRow row in rows)
+{
+	string texto = string.Format("Id: {0} ; descricao: {1}",row.Value[0], row.Value[1]);
+	Console.WriteLine(texto);
+}
+
+Saidas:
+Id: 1 ; descricao: caneca
+Id: 2 ; descricao: caneta
+
+Ex cursor reciclado:
+ICursor cursor = table.Search(queryFilter, true);
+list.Add(cursor.MoveNext());
+foreach(IRow row in rows)
+{
+	string texto = string.Format("Id: {0} ; descricao: {1}",row.Value[0], row.Value[1]);
+	Console.WriteLine(texto);
+}
+
+Saidas:
+Id: 2 ; descricao: caneta
+Id: 2 ; descricao: caneta
+
+4 - Usar de preferência, na criação de registros a classe denominada RowBuffer em vez do Row uma vez que quando é criado o RowBuffer o registro ainda não existe de fato no banco e nem possui o OBJECTID
+mas quando cria o Row o registro passa a existir com o OBJECTID no banco, ao menos na sessão corrente.
+
+
+																														
+FAQ
+Q: Por que quando altero o shape sem finalizar uma sessão de edição a seleção não é atualizada?
+R: Porque provavelmente o registro alterado foi recuperado antes do início de uma sessão de edição e nesse caso mesmo que ele seja alterado ele não é um registro em sessão da edição, sendo assim para que 
+ele reflita a seleção o registro deverá ser recarregado do banco durante a sessão de edição. Pode ser utilizado o método table.GetRow(objectid), lembrando que se não encontrar o registro irá retornar uma exceção e não null
+
+Q: O ArcMap crashou, o que pode ser?
+R: Pode ser:
+	- Exceção de uma tool sem try catch pode quebrar o ArcMap;
+	...
+
+
+Q: Como adiciono referências do ArcGIS nos projetos?
+R: Clique com o botão direito no projeto que deseja adicionar a referência, na janela que irá abrir você pode adicionar as referências e ao clicar em "Finish" as alterações serão salvas.
+
+Q: Mas consigo adicionar a referência utilizando "Ctrl+.", não posso fazer assim?
+R: Poder pode porém é recomendado que se utilize a forma citada anteriormente porque muitas das referências não podem ser embedded e terá que ser alterado manualmente.
+
+
+Q: Tive um erro durante o desenvolvimento que diz que a referência não pode ser "embedded" o que devo fazer?
+R: Como comentado anteriormente, provavelmente a referência foi adicionada utilizando "Ctrl+." e por isso não ficou conforme deveria então nesse caso você pode:
+	- Remover a referência e adicionar utilizando o utilitário do Visual Studio para adicionar referências do ArcGIS.
+	- Selecionar a dependência que diz que não pode ser embedded e alterar na janela de propriedades o item "Embedded Interop Types" para false e "Copy To Local" para true.
+
+
+Q: O projeto estava funcionando mas por algum motivo quando fiz a build ocorreu alguns erros de referência não encontrada mas não alterei as referências, o que houve?
+R: Não sei mas se você remover a referência e adicionar novamente muito provavelmente irá voltar a funcionar.
+R2: Por algum motivo a dll pode estar com problema de referência, no pior dos casos pode ser necessário copiar a DLL de outra maquina e substituir pela local.
+
+Q: Um Addin implementado com uma versão X do ArcObjects irão funcionar em ArcMap de outras versões?
+R: Dependendo das bibliotecas utilizadas não será possível executar, de preferência desenvolver com a versão que será utilizada em produção.
