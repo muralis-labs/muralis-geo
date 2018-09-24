@@ -1,0 +1,6 @@
+1 - Within X Contain:
+A Contains B -> A geometria "A" contêm a geometria "B"
+	- Quando fizer uma query espacial utilizando a geometria de "A" com "Contains", serão retornados todos os registros 
+
+
+A Within B -> A geometria "A" está dentro da geometria "B"
